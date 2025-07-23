@@ -228,6 +228,10 @@ class StealthYad2Monitor:
         listing['price_dropped'] = price_drop_elem is not None
         if listing['price_dropped']:
             listing['price_drop_text'] = price_drop_elem.get_text(strip=True) if price_drop_elem else 'מחיר ירד'
+        
+        # Filter out "פרויקט חדש" (new project) listings
+        if listing.get('price_drop_text') == 'פרויקט חדש':
+            return None
 
         # Find the content container
         content_div = item.find('div', class_='item-layout_itemContent__qT_A8')
@@ -255,6 +259,12 @@ class StealthYad2Monitor:
         else:
             listing['details'] = 'No details'
 
+        # Filter out listings with missing essential data
+        if (listing['price'] == 'No price' or 
+            listing['title'] == 'No title' or 
+            listing['location'] == 'No location'):
+            return None
+
         # Create unique ID
         listing_text = f"{listing['title']}_{listing['location']}"
         listing['id'] = hashlib.md5(listing_text.encode()).hexdigest()
@@ -263,6 +273,20 @@ class StealthYad2Monitor:
         listing['timestamp'] = datetime.now().isoformat()
 
         return listing
+
+    def normalize_price_for_comparison(self, price: str) -> str:
+        """Normalize price string for accurate comparison, handling shekel symbols and whitespace."""
+        if not price or price == 'No price':
+            return price
+        
+        # Remove extra whitespace and normalize
+        normalized = price.strip()
+        
+        # Handle different shekel representations
+        normalized = normalized.replace('₪', '₪')  # Ensure consistent unicode
+        normalized = ' '.join(normalized.split())  # Normalize internal whitespace
+        
+        return normalized
 
     def check_for_updates(self) -> List[Dict]:
         """Check for new listings and price drops."""
@@ -278,24 +302,70 @@ class StealthYad2Monitor:
             known_listing = self.known_listings.get(listing_id)
 
             if not known_listing:
+                # This is a completely new listing
                 listing['notification_type'] = 'new'
                 updates.append(listing)
-                self.known_listings[listing_id] = listing.copy()
-
-            elif listing.get('price_dropped') and not known_listing.get('price_dropped'):
-                listing['notification_type'] = 'price_drop'
-                listing['old_price'] = known_listing.get('price', 'Unknown')
-                updates.append(listing)
-                self.known_listings[listing_id] = listing.copy()
-
-            elif listing['price'] != known_listing.get('price'):
-                listing['notification_type'] = 'price_change'
-                listing['old_price'] = known_listing.get('price', 'Unknown')
-                updates.append(listing)
-                self.known_listings[listing_id] = listing.copy()
+                
+                # Store with normalized price for future comparisons
+                stored_listing = listing.copy()
+                stored_listing['normalized_price'] = self.normalize_price_for_comparison(listing['price'])
+                stored_listing['price_hash'] = hashlib.md5(stored_listing['normalized_price'].encode()).hexdigest()
+                stored_listing['price_drop_notified'] = False
+                self.known_listings[listing_id] = stored_listing
 
             else:
-                self.known_listings[listing_id]['timestamp'] = listing['timestamp']
+                # This listing already exists, check for changes
+                current_normalized_price = self.normalize_price_for_comparison(listing['price'])
+                previous_normalized_price = known_listing.get('normalized_price', '')
+                
+                # If we don't have normalized_price in stored data, create it from the stored price
+                if not previous_normalized_price:
+                    previous_normalized_price = self.normalize_price_for_comparison(known_listing.get('price', ''))
+                
+                price_changed = current_normalized_price != previous_normalized_price
+                
+                # Check if this is a new price drop (price drop indicator is present now but wasn't before)
+                current_has_drop_indicator = listing.get('price_dropped', False)
+                previous_had_drop_indicator = known_listing.get('price_dropped', False)
+                
+                # Track the actual price to detect real price drops
+                current_price_hash = hashlib.md5(current_normalized_price.encode()).hexdigest()
+                previous_price_hash = known_listing.get('price_hash', '')
+                
+                if current_has_drop_indicator and not previous_had_drop_indicator and price_changed:
+                    # This is a NEW price drop that we haven't notified about yet
+                    listing['notification_type'] = 'price_drop'
+                    listing['old_price'] = known_listing.get('price', 'Unknown')
+                    updates.append(listing)
+                    
+                    # Update the stored listing with the new information
+                    updated_listing = listing.copy()
+                    updated_listing['normalized_price'] = current_normalized_price
+                    updated_listing['price_hash'] = current_price_hash
+                    updated_listing['price_drop_notified'] = True  # Mark that we've sent this notification
+                    self.known_listings[listing_id] = updated_listing
+                    
+                elif price_changed and not current_has_drop_indicator:
+                    # Regular price change without drop indicator
+                    listing['notification_type'] = 'price_change'
+                    listing['old_price'] = known_listing.get('price', 'Unknown')
+                    updates.append(listing)
+                    
+                    # Update the stored listing
+                    updated_listing = listing.copy()
+                    updated_listing['normalized_price'] = current_normalized_price
+                    updated_listing['price_hash'] = current_price_hash
+                    updated_listing['price_drop_notified'] = False  # Reset drop notification flag
+                    self.known_listings[listing_id] = updated_listing
+                    
+                else:
+                    # No significant changes, just update timestamp
+                    self.known_listings[listing_id]['timestamp'] = listing['timestamp']
+                    # Keep the existing price_hash and price_drop_notified status
+                    if 'price_hash' not in self.known_listings[listing_id]:
+                        self.known_listings[listing_id]['normalized_price'] = current_normalized_price
+                        self.known_listings[listing_id]['price_hash'] = current_price_hash
+                        self.known_listings[listing_id]['price_drop_notified'] = False
 
         # Clean up old listings
         current_ids = {listing['id'] for listing in current_listings}
