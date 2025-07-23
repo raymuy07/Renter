@@ -15,14 +15,14 @@ import random
 from urllib.parse import urljoin, urlparse
 import cloudscraper
 from yad_scrapper import StealthYad2Monitor
-
+import pytz
 
 
 
 class TelegramYad2Bot:
-    def __init__(self, bot_token: str, chat_id: str, yad2_url: str, check_interval: int = 15):
+    def __init__(self, bot_token: str, chat_ids: List[str], yad2_url: str, check_interval: int = 15):
         self.bot = Bot(token=bot_token)
-        self.chat_id = chat_id
+        self.chat_ids = chat_ids
         self.monitor = StealthYad2Monitor(yad2_url)
         self.check_interval = check_interval  # minutes
         self.logger = logging.getLogger(__name__)
@@ -78,40 +78,42 @@ class TelegramYad2Bot:
 
     async def send_message(self, message: str):
         """Send a message to the Telegram chat."""
-        try:
-            await self.bot.send_message(
-                chat_id=self.chat_id,
-                text=message,
-                parse_mode='MarkdownV2',
-                disable_web_page_preview=True,
-                read_timeout=30,
-                write_timeout=30,
-                connect_timeout=30,
-                pool_timeout=30
-            )
-            self.logger.info("Message sent successfully")
-
-
-        except TelegramError as e:
-            self.logger.error(f"Error sending Telegram message: {e}")
+        for chat_id in self.chat_ids:
             try:
-                # Fallback without markdown
                 await self.bot.send_message(
                     chat_id=self.chat_id,
-                    text=message.replace('\\', '').replace('*', '').replace('_', ''),
+                    text=message,
+                    parse_mode='MarkdownV2',
                     disable_web_page_preview=True,
                     read_timeout=30,
                     write_timeout=30,
                     connect_timeout=30,
                     pool_timeout=30
                 )
-                self.logger.info("Fallback message sent successfully")
-            except TelegramError as e2:
-                self.logger.error(f"Error sending fallback message: {e2}")
-                # Wait a bit before next attempt
-                await asyncio.sleep(5)
+                self.logger.info("Message sent successfully")
+
+
+            except TelegramError as e:
+                self.logger.error(f"Error sending Telegram message: {e}")
+                try:
+                    # Fallback without markdown
+                    await self.bot.send_message(
+                        chat_id=self.chat_id,
+                        text=message.replace('\\', '').replace('*', '').replace('_', ''),
+                        disable_web_page_preview=True,
+                        read_timeout=30,
+                        write_timeout=30,
+                        connect_timeout=30,
+                        pool_timeout=30
+                    )
+                    self.logger.info("Fallback message sent successfully")
+                except TelegramError as e2:
+                    self.logger.error(f"Error sending fallback message: {e2}")
+                    # Wait a bit before next attempt
+                    await asyncio.sleep(5)
 
     def check_listings_sync(self):
+       
         """Synchronous wrapper for checking listings."""
         try:
             self.logger.info("🔍 Starting stealth listing check...")
@@ -161,11 +163,19 @@ class TelegramYad2Bot:
 
     def start_monitoring(self):
         """Start the monitoring service with randomized intervals."""
+        
         self.logger.info(f"🚀 Starting stealth monitoring (avg {self.check_interval} min intervals)")
-
+        israel_tz = pytz.timezone('Asia/Jerusalem')
         def run_with_jitter():
             """Run checks with randomized timing."""
             while True:
+                israel_time = datetime.now(israel_tz)
+                current_hour = israel_time.hour
+                if current_hour < 7 or current_hour >= 23:
+                    self.logger.info(f"Outside monitoring hours (current Israel time: {israel_time.strftime('%H:%M')})")
+                    time.sleep(3600)  # Wait 1 hour before retry
+                    continue
+                
                 try:
                     self.check_listings_sync()
 
@@ -204,17 +214,14 @@ class TelegramYad2Bot:
 def main():
     # Configuration
     BOT_TOKEN = "7889379066:AAEflJTAFqwTDLXoYClOddzUoSXHR2Yxw1U"  # Get from @BotFather
-    CHAT_ID = "6372583816"  # Your Telegram chat ID
+    CHAT_IDS = ["6372583816", "8182838467"]  # Your Telegram chat ID
     YAD2_URL = "https://www.yad2.co.il/realestate/rent?maxPrice=8000&minRooms=2&maxRooms=2.5&minFloor=0&maxFloor=3&property=1&balcony=1&multiNeighborhood=1520%2C1521%2C1461&zoom=13"
     
-    if BOT_TOKEN == "YOUR_BOT_TOKEN_HERE" or CHAT_ID == "YOUR_CHAT_ID_HERE":
-        print("❌ Please configure your BOT_TOKEN and CHAT_ID!")
-        return
-    
+   
     try:
         telegram_bot = TelegramYad2Bot(
             bot_token=BOT_TOKEN,
-            chat_id=CHAT_ID,
+            chat_id=CHAT_IDS,
             yad2_url=YAD2_URL,
             check_interval=20  # Average 20 minutes with jitter
         )
