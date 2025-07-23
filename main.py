@@ -471,7 +471,7 @@ def main():
     # Configuration
     BOT_TOKEN = "7889379066:AAEflJTAFqwTDLXoYClOddzUoSXHR2Yxw1U"  # Get from @BotFather
     CHAT_ID = "6372583816"  # Your Telegram chat ID
-    YAD2_URL = "https://www.yad2.co.il/realestate/rent?maxPrice=8000&minRooms=2.5&maxRooms=2.5&minFloor=0&maxFloor=3&property=1&balcony=1&multiNeighborhood=1520%2C1521%2C1461&zoom=13"
+    YAD2_URL = "https://www.yad2.co.il/realestate/rent?maxPrice=8000&minRooms=2&maxRooms=2.5&minFloor=0&maxFloor=3&property=1&balcony=1&multiNeighborhood=1520%2C1521%2C1461&zoom=13"
     
     if BOT_TOKEN == "YOUR_BOT_TOKEN_HERE" or CHAT_ID == "YOUR_CHAT_ID_HERE":
         print("❌ Please configure your BOT_TOKEN and CHAT_ID!")
