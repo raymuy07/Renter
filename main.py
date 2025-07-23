@@ -81,7 +81,7 @@ class TelegramYad2Bot:
         for chat_id in self.chat_ids:
             try:
                 await self.bot.send_message(
-                    chat_id=self.chat_id,
+                    chat_id=chat_id,  # Fixed: was self.chat_id, now using chat_id from loop
                     text=message,
                     parse_mode='MarkdownV2',
                     disable_web_page_preview=True,
@@ -90,15 +90,14 @@ class TelegramYad2Bot:
                     connect_timeout=30,
                     pool_timeout=30
                 )
-                self.logger.info("Message sent successfully")
-
+                self.logger.info(f"Message sent successfully to chat {chat_id}")
 
             except TelegramError as e:
-                self.logger.error(f"Error sending Telegram message: {e}")
+                self.logger.error(f"Error sending Telegram message to chat {chat_id}: {e}")
                 try:
                     # Fallback without markdown
                     await self.bot.send_message(
-                        chat_id=self.chat_id,
+                        chat_id=chat_id,  # Fixed: was self.chat_id, now using chat_id from loop
                         text=message.replace('\\', '').replace('*', '').replace('_', ''),
                         disable_web_page_preview=True,
                         read_timeout=30,
@@ -106,11 +105,16 @@ class TelegramYad2Bot:
                         connect_timeout=30,
                         pool_timeout=30
                     )
-                    self.logger.info("Fallback message sent successfully")
+                    self.logger.info(f"Fallback message sent successfully to chat {chat_id}")
                 except TelegramError as e2:
-                    self.logger.error(f"Error sending fallback message: {e2}")
+                    self.logger.error(f"Error sending fallback message to chat {chat_id}: {e2}")
                     # Wait a bit before next attempt
                     await asyncio.sleep(5)
+
+    def send_message_sync(self, message: str):
+        """Synchronous wrapper for sending messages - creates new coroutine each time."""
+        # Create a new coroutine each time to avoid reuse issues
+        return self.run_async(self.send_message(message))
 
     def check_listings_sync(self):
        
@@ -124,7 +128,8 @@ class TelegramYad2Bot:
 
                 for i, listing in enumerate(updates):
                     message = self.monitor.format_listing_for_telegram(listing)
-                    self.run_async(self.send_message(message))
+                    # Use the sync wrapper to avoid coroutine reuse
+                    self.send_message_sync(message)
 
                     # Add delay between messages, but not after the last one
                     if i < len(updates) - 1:
@@ -135,7 +140,7 @@ class TelegramYad2Bot:
                 # Send summary after a short pause
                 time.sleep(1)
                 summary = self.create_summary(updates)
-                self.run_async(self.send_message(summary))
+                self.send_message_sync(summary)
 
             else:
                 self.logger.info("No new listings found")
@@ -143,7 +148,7 @@ class TelegramYad2Bot:
         except Exception as e:
             self.logger.error(f"Error during listing check: {e}")
             error_msg = f"❌ Monitoring error: {str(e)[:100]}..."
-            self.run_async(self.send_message(error_msg))
+            self.send_message_sync(error_msg)
 
     def create_summary(self, updates: List[Dict]) -> str:
         """Create a summary message."""
