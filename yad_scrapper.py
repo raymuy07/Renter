@@ -219,9 +219,12 @@ class StealthYad2Monitor:
         href = item.get('href', '')
         if href:
             if href.startswith('/'):
-                listing['link'] = 'https://www.yad2.co.il' + href
+                full_link = 'https://www.yad2.co.il' + href
             else:
-                listing['link'] = href
+                full_link = href
+            # Remove everything after the question mark
+            base_link = full_link.split('?', 1)[0]
+            listing['link'] = base_link
         else:
             listing['link'] = 'No link'
 
@@ -267,8 +270,8 @@ class StealthYad2Monitor:
             listing['location'] == 'No location'):
             return None
 
-        # Create unique ID
-        listing_text = f"{listing['title']}_{listing['location']}"
+        # Create unique ID using title, location, and link
+        listing_text = f"{listing['title']}_{listing['location']}_{listing['link']}"
         listing['id'] = hashlib.md5(listing_text.encode()).hexdigest()
 
         # Add timestamp
