@@ -71,7 +71,7 @@ class TelegramYad2Bot:
         try:
             bot_info = await self.bot.get_me()
             self.logger.info(f"✅ Telegram bot connected: @{bot_info.username}")
-            await self.send_message("🤖 Stealth Yad2 Monitor Started!\nUsing advanced anti-detection measures...")
+            await self.send_message("🤖 Stealth Yad2 Monitor Started\nUsing advanced anti-detection measures...")
         except TelegramError as e:
             self.logger.error(f"❌ Telegram bot connection failed: {e}")
             raise
@@ -124,7 +124,7 @@ class TelegramYad2Bot:
             updates = self.monitor.check_for_updates()
 
             if updates:
-                self.logger.info(f"🎉 Found {len(updates)} updates!")
+                self.logger.info(f"🎉 Found {len(updates)} updates")
 
                 for i, listing in enumerate(updates):
                     message = self.monitor.format_listing_for_telegram(listing)
