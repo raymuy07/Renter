@@ -389,11 +389,11 @@ class StealthYad2Monitor:
         notification_type = listing.get('notification_type', 'new')
 
         if notification_type == 'new':
-            header = "🏠 *NEW LISTING FOUND\\!*"
+            header = "🏠 *פוסט חדש\\!*"
         elif notification_type == 'price_drop':
-            header = f"💰 *PRICE DROP\\!* {listing.get('price_drop_text', 'מחיר ירד')}"
+            header = f"💰 *ירידת מחיר\\!* {listing.get('price_drop_text', 'מחיר ירד')}"
         elif notification_type == 'price_change':
-            header = "📈 *PRICE CHANGED\\!*"
+            header = "📈 *שינוי מחיר\\!*"
         else:
             header = "🏠 *LISTING UPDATE\\!*"
 
@@ -412,18 +412,18 @@ class StealthYad2Monitor:
         message = f"""
 {header}
 
-🏷️ *Title:* {title}
-💰 *Price:* {price}"""
+🏷️ *כותרת:* {title}
+💰 *מחיר:* {price}"""
 
         if notification_type in ['price_drop', 'price_change'] and listing.get('old_price'):
             old_price = escape_md(listing['old_price'])
-            message += f" \\(was: {old_price}\\)"
+            message += f" \\(היה: {old_price}\\)"
 
         message += f"""
-📍 *Location:* {location}
-📋 *Details:* {details}
-🔗 [View Listing]({link})
+📍 *כתובת:* {location}
+📋 *פרטים:* {details}
+🔗 [View listing]({link})
 
-{datetime.now().strftime('%Y %m %d %H:%M:%S')}
+{datetime.now().strftime("%Y\\-%m\\-%d %H:%M:%S")}
 """
         return message
