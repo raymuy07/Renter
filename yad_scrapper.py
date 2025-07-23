@@ -391,13 +391,13 @@ class StealthYad2Monitor:
         notification_type = listing.get('notification_type', 'new')
 
         if notification_type == 'new':
-            header = "🏠 *!\\פוסט חדש*"
+            header = "🏠 *פוסט חדש*"
         elif notification_type == 'price_drop':
-            header = f"💰 *!\\ירידת מחיר* {listing.get('price_drop_text', 'מחיר ירד')}"
+            header = f"💰 *ירידת מחיר* {listing.get('price_drop_text', 'מחיר ירד')}"
         elif notification_type == 'price_change':
-            header = "📈 *!\\שינוי מחיר*"
+            header = "📈 *שינוי מחיר*"
         else:
-            header = "🏠 *!\\שינוי מחיר*"
+            header = "🏠 *שינוי מחיר*"
 
         def escape_md(text):
             chars_to_escape = ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!']
