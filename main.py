@@ -221,7 +221,7 @@ def main():
     try:
         telegram_bot = TelegramYad2Bot(
             bot_token=BOT_TOKEN,
-            chat_id=CHAT_IDS,
+            chat_ids=CHAT_IDS,
             yad2_url=YAD2_URL,
             check_interval=20  # Average 20 minutes with jitter
         )
