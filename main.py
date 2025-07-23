@@ -1,3 +1,4 @@
+from csv import Error
 import requests
 from bs4 import BeautifulSoup
 import time
@@ -16,16 +17,33 @@ from urllib.parse import urljoin, urlparse
 import cloudscraper
 from yad_scrapper import StealthYad2Monitor
 import pytz
+import os
+import uuid
 
 
+def get_device_id():
+        
+        id_file = 'device_id.txt'
+        if os.path.exists(id_file):
+            with open(id_file, 'r') as f:
+                return f.read().strip()
+        else:
+            device_id = str(uuid.uuid4())
+            with open(id_file, 'w') as f:
+                f.write(device_id)
+            return device_id
 
 class TelegramYad2Bot:
-    def __init__(self, bot_token: str, chat_ids: List[str], yad2_url: str, check_interval: int = 15):
+    def __init__(self, bot_token: str, error_bot_token:str, chat_ids: List[str], error_chat_id:str, yad2_url: str, check_interval: int = 15):
         self.bot = Bot(token=bot_token)
+        self.error_bot = Bot(token=error_bot_token)
+        self.error_chat_id = error_chat_id
         self.chat_ids = chat_ids
         self.monitor = StealthYad2Monitor(yad2_url)
         self.check_interval = check_interval  # minutes
         self.logger = logging.getLogger(__name__)
+        self.DEVICE_ID= get_device_id()
+
 
         # Create persistent event loop
         self.loop = None
@@ -33,6 +51,10 @@ class TelegramYad2Bot:
 
         # Test bot connection
         self.run_async(self.test_connection())
+
+
+    
+
 
     def setup_async_loop(self):
         """Set up a persistent event loop for async operations."""
@@ -107,6 +129,16 @@ class TelegramYad2Bot:
                     )
                     self.logger.info(f"Fallback message sent successfully to chat {chat_id}")
                 except TelegramError as e2:
+                    await self.error_bot.send_message(
+                        chat_id=self.error_chat_id,  
+                        text=f"Error sending fallback message to chat {chat_id}: {e2}",
+                        parse_mode='MarkdownV2',
+                        disable_web_page_preview=True,
+                        read_timeout=30,
+                        write_timeout=30,
+                        connect_timeout=30,
+                        pool_timeout=30
+                    )
                     self.logger.error(f"Error sending fallback message to chat {chat_id}: {e2}")
                     # Wait a bit before next attempt
                     await asyncio.sleep(5)
@@ -174,12 +206,12 @@ class TelegramYad2Bot:
         def run_with_jitter():
             """Run checks with randomized timing."""
             while True:
-                # israel_time = datetime.now(israel_tz)
-                # current_hour = israel_time.hour
-                # if current_hour < 7 or current_hour >= 23:
-                #     self.logger.info(f"Outside monitoring hours (current Israel time: {israel_time.strftime('%H:%M')})")
-                #     time.sleep(3600)  # Wait 1 hour before retry
-                #     continue
+                israel_time = datetime.now(israel_tz)
+                current_hour = israel_time.hour
+                if current_hour < 7 or current_hour >= 23:
+                    self.logger.info(f"Outside monitoring hours (current Israel time: {israel_time.strftime('%H:%M')})")
+                    time.sleep(3600)  # Wait 1 hour before retry
+                    continue
                 
                 try:
                     self.check_listings_sync()
@@ -219,14 +251,18 @@ class TelegramYad2Bot:
 def main():
     # Configuration
     BOT_TOKEN = "7889379066:AAEflJTAFqwTDLXoYClOddzUoSXHR2Yxw1U"  # Get from @BotFather
+    ERROR_BOT_TOKEN = ""
     CHAT_IDS = ["6372583816", "8182838467"]  # Your Telegram chat ID
+    ERROR_CHAT_ID= " "
     YAD2_URL = "https://www.yad2.co.il/realestate/rent?maxPrice=8000&minRooms=2&maxRooms=2.5&minFloor=0&maxFloor=3&property=1&balcony=1&multiNeighborhood=1520%2C1521%2C1461&zoom=13"
     
    
     try:
         telegram_bot = TelegramYad2Bot(
             bot_token=BOT_TOKEN,
+            error_bot_token=ERROR_BOT_TOKEN
             chat_ids=CHAT_IDS,
+            error_chat_id=ERROR_CHAT_ID
             yad2_url=YAD2_URL,
             check_interval=20  # Average 20 minutes with jitter
         )
