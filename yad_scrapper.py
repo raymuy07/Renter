@@ -42,16 +42,18 @@ class StealthYad2Monitor:
         # Set initial headers
         self.update_headers()
 
-        # Set up logging
-        logging.basicConfig(
-            level=logging.INFO,
-            format='%(asctime)s - %(levelname)s - %(message)s',
-            handlers=[
-                logging.FileHandler('yad2_monitor.log'),
-                logging.StreamHandler()
-            ]
-        )
+        # Set up rotating file logging (no terminal output)
+        from logging.handlers import RotatingFileHandler
+        log_file = 'yad2_monitor.log'
+        max_bytes = 2 * 1024 * 1024  # 2 MB
+        backup_count = 3  # Keep up to 3 old log files
+        handler = RotatingFileHandler(log_file, maxBytes=max_bytes, backupCount=backup_count, encoding='utf-8')
+        formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+        handler.setFormatter(formatter)
         self.logger = logging.getLogger(__name__)
+        self.logger.setLevel(logging.INFO)
+        self.logger.handlers = []  # Remove any existing handlers
+        self.logger.addHandler(handler)
 
         # Load known listings from file
         self.known_listings = self.load_known_listings()
