@@ -426,6 +426,6 @@ class StealthYad2Monitor:
 📋 *פרטים:* {details}
 🔗 [View listing]({link})
 
-{datetime.now().strftime("%Y\\-%m\\-%d %H:%M:%S")}
+{datetime.now().strftime("%Y %m %d %H:%M:%S")}
 """
         return message

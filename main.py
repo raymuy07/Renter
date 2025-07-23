@@ -174,12 +174,12 @@ class TelegramYad2Bot:
         def run_with_jitter():
             """Run checks with randomized timing."""
             while True:
-                israel_time = datetime.now(israel_tz)
-                current_hour = israel_time.hour
-                if current_hour < 7 or current_hour >= 23:
-                    self.logger.info(f"Outside monitoring hours (current Israel time: {israel_time.strftime('%H:%M')})")
-                    time.sleep(3600)  # Wait 1 hour before retry
-                    continue
+                # israel_time = datetime.now(israel_tz)
+                # current_hour = israel_time.hour
+                # if current_hour < 7 or current_hour >= 23:
+                #     self.logger.info(f"Outside monitoring hours (current Israel time: {israel_time.strftime('%H:%M')})")
+                #     time.sleep(3600)  # Wait 1 hour before retry
+                #     continue
                 
                 try:
                     self.check_listings_sync()
