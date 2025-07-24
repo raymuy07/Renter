@@ -3,7 +3,7 @@ from bs4 import BeautifulSoup
 import time
 import json
 import hashlib
-from datetime import datetime
+from datetime import datetime, timedelta
 import logging
 from typing import Set, Dict, List
 import os
@@ -15,9 +15,10 @@ from urllib.parse import urljoin, urlparse
 import cloudscraper
 
 class StealthYad2Monitor:
-    def __init__(self, url: str, check_interval: int = 900):
+    def __init__(self, url: str, check_interval: int = 900, cleanup_after_days: int = 7):
         self.url = url
         self.check_interval = check_interval
+        self.cleanup_after_days = cleanup_after_days  # Only remove listings after N days of not seeing them
 
         # Use cloudscraper instead of requests for better Cloudflare bypass
         self.session = cloudscraper.create_scraper(
@@ -301,7 +302,10 @@ class StealthYad2Monitor:
 
         current_listings = self.parse_listings(html)
         updates = []
+        current_time = datetime.now()
+        current_ids = {listing['id'] for listing in current_listings}
 
+        # Update last_seen timestamp for all currently visible listings
         for listing in current_listings:
             listing_id = listing['id']
             known_listing = self.known_listings.get(listing_id)
@@ -311,14 +315,19 @@ class StealthYad2Monitor:
                 listing['notification_type'] = 'new'
                 updates.append(listing)
                 
-                # Store with normalized price for future comparisons
+                # Store with normalized price and tracking info for future comparisons
                 stored_listing = listing.copy()
                 stored_listing['normalized_price'] = self.normalize_price_for_comparison(listing['price'])
                 stored_listing['price_hash'] = hashlib.md5(stored_listing['normalized_price'].encode()).hexdigest()
                 stored_listing['price_drop_notified'] = False
+                stored_listing['last_seen'] = current_time.isoformat()  # Track when we last saw this listing
+                stored_listing['first_seen'] = current_time.isoformat()  # Track when we first saw this listing
                 self.known_listings[listing_id] = stored_listing
 
             else:
+                # Update the last_seen timestamp since we saw this listing in the current scrape
+                self.known_listings[listing_id]['last_seen'] = current_time.isoformat()
+                
                 # This listing already exists, check for changes
                 current_normalized_price = self.normalize_price_for_comparison(listing['price'])
                 previous_normalized_price = known_listing.get('normalized_price', '')
@@ -344,7 +353,8 @@ class StealthYad2Monitor:
                     updates.append(listing)
                     
                     # Update the stored listing with the new information
-                    updated_listing = listing.copy()
+                    updated_listing = known_listing.copy()
+                    updated_listing.update(listing)
                     updated_listing['normalized_price'] = current_normalized_price
                     updated_listing['price_hash'] = current_price_hash
                     updated_listing['price_drop_notified'] = True  # Mark that we've sent this notification
@@ -357,14 +367,15 @@ class StealthYad2Monitor:
                     updates.append(listing)
                     
                     # Update the stored listing
-                    updated_listing = listing.copy()
+                    updated_listing = known_listing.copy()
+                    updated_listing.update(listing)
                     updated_listing['normalized_price'] = current_normalized_price
                     updated_listing['price_hash'] = current_price_hash
                     updated_listing['price_drop_notified'] = False  # Reset drop notification flag
                     self.known_listings[listing_id] = updated_listing
                     
                 else:
-                    # No significant changes, just update timestamp
+                    # No significant changes, just update timestamp and ensure we have price tracking info
                     self.known_listings[listing_id]['timestamp'] = listing['timestamp']
                     # Keep the existing price_hash and price_drop_notified status
                     if 'price_hash' not in self.known_listings[listing_id]:
@@ -372,20 +383,44 @@ class StealthYad2Monitor:
                         self.known_listings[listing_id]['price_hash'] = current_price_hash
                         self.known_listings[listing_id]['price_drop_notified'] = False
 
-        # Clean up old listings
-        current_ids = {listing['id'] for listing in current_listings}
+        # Safe cleanup: Only remove listings that haven't been seen for X days
+        cutoff_date = current_time - timedelta(days=self.cleanup_after_days)
         removed_count = 0
+        
         for listing_id in list(self.known_listings.keys()):
-            if listing_id not in current_ids:
-                del self.known_listings[listing_id]
-                removed_count += 1
+            known_listing = self.known_listings[listing_id]
+            
+            # Get last_seen date, with fallback to timestamp if last_seen doesn't exist
+            last_seen_str = known_listing.get('last_seen', known_listing.get('timestamp'))
+            
+            if last_seen_str:
+                try:
+                    last_seen = datetime.fromisoformat(last_seen_str.replace('Z', '+00:00'))
+                    # Remove timezone info if present for comparison
+                    if last_seen.tzinfo is not None:
+                        last_seen = last_seen.replace(tzinfo=None)
+                    
+                    if last_seen < cutoff_date:
+                        self.logger.info(f"Removing listing {listing_id} - not seen since {last_seen_str}")
+                        del self.known_listings[listing_id]
+                        removed_count += 1
+                except (ValueError, TypeError) as e:
+                    self.logger.warning(f"Error parsing date for listing {listing_id}: {e}")
+                    # If we can't parse the date, keep the listing to be safe
+            else:
+                # If no date info at all, keep the listing to be safe
+                self.logger.warning(f"No date info for listing {listing_id}, keeping it")
 
         if removed_count > 0:
-            self.logger.info(f"Removed {removed_count} inactive listings")
+            self.logger.info(f"Removed {removed_count} listings not seen for {self.cleanup_after_days} days")
 
         # Save updated listings
         if updates or removed_count > 0:
             self.save_known_listings()
+
+        # Log statistics
+        self.logger.info(f"Current scrape: {len(current_listings)} listings found, {len(updates)} updates to notify")
+        self.logger.info(f"Total tracked listings: {len(self.known_listings)}")
 
         return updates
 

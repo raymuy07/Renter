@@ -127,21 +127,25 @@ class TelegramYad2Bot:
                         connect_timeout=30,
                         pool_timeout=30
                     )
-                    self.logger.info(f"Fallback message sent successfully to chat {chat_id}")
+
                 except TelegramError as e2:
-                    await self.error_bot.send_message(
-                        chat_id=self.error_chat_id,  
-                        text=f"Error sending fallback message to chat {chat_id}: {e2}",
-                        parse_mode='MarkdownV2',
-                        disable_web_page_preview=True,
-                        read_timeout=30,
-                        write_timeout=30,
-                        connect_timeout=30,
-                        pool_timeout=30
-                    )
-                    self.logger.error(f"Error sending fallback message to chat {chat_id}: {e2}")
+                    self.logger.info(f"Fallback message sent successfully to chat {chat_id}")
                     # Wait a bit before next attempt
                     await asyncio.sleep(5)
+                # except TelegramError as e2:
+                #     await self.error_bot.send_message(
+                #         chat_id=self.error_chat_id,  
+                #         text=f"Error sending fallback message to chat {chat_id}: {e2}",
+                #         parse_mode='MarkdownV2',
+                #         disable_web_page_preview=True,
+                #         read_timeout=30,
+                #         write_timeout=30,
+                #         connect_timeout=30,
+                #         pool_timeout=30
+                #     )
+                    # self.logger.error(f"Error sending fallback message to chat {chat_id}: {e2}")
+                # except TelegramError as e3:
+
 
     def send_message_sync(self, message: str):
         """Synchronous wrapper for sending messages - creates new coroutine each time."""
@@ -251,18 +255,18 @@ class TelegramYad2Bot:
 def main():
     # Configuration
     BOT_TOKEN = "7889379066:AAEflJTAFqwTDLXoYClOddzUoSXHR2Yxw1U"  # Get from @BotFather
-    ERROR_BOT_TOKEN = ""
+    ERROR_BOT_TOKEN = "8415624082:AAFecrpgFvg2v5OOiroHWL4j4VGl6suIEKk"
     CHAT_IDS = ["6372583816", "8182838467"]  # Your Telegram chat ID
-    ERROR_CHAT_ID= " "
+    ERROR_CHAT_ID= "6372583816"
     YAD2_URL = "https://www.yad2.co.il/realestate/rent?maxPrice=8000&minRooms=2&maxRooms=2.5&minFloor=0&maxFloor=3&property=1&balcony=1&multiNeighborhood=1520%2C1521%2C1461&zoom=13"
     
    
     try:
         telegram_bot = TelegramYad2Bot(
             bot_token=BOT_TOKEN,
-            error_bot_token=ERROR_BOT_TOKEN
+            error_bot_token=ERROR_BOT_TOKEN,
             chat_ids=CHAT_IDS,
-            error_chat_id=ERROR_CHAT_ID
+            error_chat_id=ERROR_CHAT_ID,
             yad2_url=YAD2_URL,
             check_interval=20  # Average 20 minutes with jitter
         )
