@@ -106,17 +106,8 @@ class TelegramYad2Bot:
                         pool_timeout=30
                     )
                     self.logger.info(f"Fallback message sent successfully to chat {chat_id}")
+
                 except TelegramError as e2:
-                    await self.error_bot.send_message(
-                        chat_id=self.error_chat_id,  
-                        text=f"Error sending fallback message to chat {chat_id}: {e2}",
-                        parse_mode='MarkdownV2',
-                        disable_web_page_preview=True,
-                        read_timeout=30,
-                        write_timeout=30,
-                        connect_timeout=30,
-                        pool_timeout=30
-                    )
                     self.logger.error(f"Error sending fallback message to chat {chat_id}: {e2}")
                     # Wait a bit before next attempt
                     await asyncio.sleep(5)
