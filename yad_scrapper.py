@@ -61,6 +61,10 @@ class StealthYad2Monitor:
         # Track request patterns to avoid detection
         self.last_request_time = 0
         self.request_count = 0
+        
+        # Simple counter for cleanup - only cleanup every N scrapes to avoid false removals
+        self.scrape_count = 0
+        self.cleanup_every_n_scrapes = 50  # Only attempt cleanup every 10 scrapes
 
     def update_headers(self):
         """Update headers with a random user agent and realistic browser headers."""
@@ -301,6 +305,11 @@ class StealthYad2Monitor:
 
         current_listings = self.parse_listings(html)
         updates = []
+        
+        # Increment scrape counter
+        self.scrape_count += 1
+        
+        current_ids = {listing['id'] for listing in current_listings}
 
         for listing in current_listings:
             listing_id = listing['id']
@@ -316,9 +325,13 @@ class StealthYad2Monitor:
                 stored_listing['normalized_price'] = self.normalize_price_for_comparison(listing['price'])
                 stored_listing['price_hash'] = hashlib.md5(stored_listing['normalized_price'].encode()).hexdigest()
                 stored_listing['price_drop_notified'] = False
+                stored_listing['times_not_seen'] = 0  # Track consecutive times not seen
                 self.known_listings[listing_id] = stored_listing
 
             else:
+                # Reset the "not seen" counter since we saw it this time
+                self.known_listings[listing_id]['times_not_seen'] = 0
+                
                 # This listing already exists, check for changes
                 current_normalized_price = self.normalize_price_for_comparison(listing['price'])
                 previous_normalized_price = known_listing.get('normalized_price', '')
@@ -348,6 +361,7 @@ class StealthYad2Monitor:
                     updated_listing['normalized_price'] = current_normalized_price
                     updated_listing['price_hash'] = current_price_hash
                     updated_listing['price_drop_notified'] = True  # Mark that we've sent this notification
+                    updated_listing['times_not_seen'] = 0
                     self.known_listings[listing_id] = updated_listing
                     
                 elif price_changed and not current_has_drop_indicator:
@@ -361,6 +375,7 @@ class StealthYad2Monitor:
                     updated_listing['normalized_price'] = current_normalized_price
                     updated_listing['price_hash'] = current_price_hash
                     updated_listing['price_drop_notified'] = False  # Reset drop notification flag
+                    updated_listing['times_not_seen'] = 0
                     self.known_listings[listing_id] = updated_listing
                     
                 else:
@@ -372,13 +387,26 @@ class StealthYad2Monitor:
                         self.known_listings[listing_id]['price_hash'] = current_price_hash
                         self.known_listings[listing_id]['price_drop_notified'] = False
 
-        # Clean up old listings
-        current_ids = {listing['id'] for listing in current_listings}
-        removed_count = 0
-        for listing_id in list(self.known_listings.keys()):
+        # Increment "times_not_seen" counter for listings we didn't see this time
+        for listing_id in self.known_listings:
             if listing_id not in current_ids:
-                del self.known_listings[listing_id]
-                removed_count += 1
+                if 'times_not_seen' not in self.known_listings[listing_id]:
+                    self.known_listings[listing_id]['times_not_seen'] = 0
+                self.known_listings[listing_id]['times_not_seen'] += 1
+
+        # CONSERVATIVE cleanup: Only every N scrapes AND only if consistently not seen
+        removed_count = 0
+        if self.scrape_count % self.cleanup_every_n_scrapes == 0:
+            self.logger.info(f"Attempting cleanup on scrape #{self.scrape_count}")
+            self.scrape_count=0
+            for listing_id in list(self.known_listings.keys()):
+                times_not_seen = self.known_listings[listing_id].get('times_not_seen', 0)
+                
+                # Only remove if not seen for 5+ consecutive scrapes
+                if times_not_seen >= 10:
+                    self.logger.info(f"Removing listing {listing_id} - not seen for {times_not_seen} consecutive scrapes")
+                    del self.known_listings[listing_id]
+                    removed_count += 1
 
         if removed_count > 0:
             self.logger.info(f"Removed {removed_count} inactive listings")
