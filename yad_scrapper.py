@@ -373,19 +373,22 @@ class StealthYad2Monitor:
                         self.known_listings[listing_id]['price_hash'] = current_price_hash
                         self.known_listings[listing_id]['price_drop_notified'] = False
 
-        # Clean up old listings
-        current_ids = {listing['id'] for listing in current_listings}
-        removed_count = 0
-        for listing_id in list(self.known_listings.keys()):
-            if listing_id not in current_ids:
-                del self.known_listings[listing_id]
-                removed_count += 1
+        # # Clean up old listings
+        # current_ids = {listing['id'] for listing in current_listings}
+        # removed_count = 0
+        # for listing_id in list(self.known_listings.keys()):
+        #     if listing_id not in current_ids:
+        #         del self.known_listings[listing_id]
+        #         removed_count += 1
 
-        if removed_count > 0:
-            self.logger.info(f"Removed {removed_count} inactive listings")
+        # if removed_count > 0:
+        #     self.logger.info(f"Removed {removed_count} inactive listings")
 
-        # Save updated listings
-        if updates or removed_count > 0:
+        # # Save updated listings
+        # if updates or removed_count > 0:
+        #     self.save_known_listings()
+
+        if updates:
             self.save_known_listings()
 
         return updates
