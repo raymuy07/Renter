@@ -220,7 +220,7 @@ class TelegramYad2Bot:
 def main():
     # Configuration
     BOT_TOKEN = "7889379066:AAEflJTAFqwTDLXoYClOddzUoSXHR2Yxw1U"  # Get from @BotFather
-    CHAT_IDS = ["6372583816", "8182838467"]  # Your Telegram chat ID
+    CHAT_IDS = ["6372583816", "8182838467","421141181"]  # Your Telegram chat ID
     YAD2_URL = "https://www.yad2.co.il/realestate/rent?maxPrice=8000&minRooms=2&maxRooms=2.5&minFloor=0&maxFloor=3&property=1&balcony=1&multiNeighborhood=1520%2C1521%2C1461&zoom=13"
     
    
