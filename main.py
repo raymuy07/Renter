@@ -16,6 +16,8 @@ from urllib.parse import urljoin, urlparse
 import cloudscraper
 from yad_scrapper import StealthYad2Monitor
 import pytz
+import os
+from dotenv import load_dotenv
 
 
 
@@ -219,11 +221,15 @@ class TelegramYad2Bot:
 
 def main():
     # Configuration
-    BOT_TOKEN = "7889379066:AAEflJTAFqwTDLXoYClOddzUoSXHR2Yxw1U"  # Get from @BotFather
-    CHAT_IDS = ["6372583816","421141181"]  # Guy, Guy Iluz
 
-    YAD2_URL= "https://www.yad2.co.il/realestate/rent?minPrice=5000&maxPrice=7500&minRooms=2&maxRooms=3.5&minSquaremeter=60&property=1%2C3%2C6%2C7%2C25%2C49%2C51%2C11%2C31%2C43%2C4&multiNeighborhood=1520%2C485%2C1461&zoom=13"
+    load_dotenv()
+    BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+    CHAT_IDS = ["6372583816","421141181","747156877"]  # Guy, Guy Iluz, YOt
 
+
+    YAD2_URL="https://www.yad2.co.il/realestate/rent?maxPrice=8000&minRooms=2&maxRooms=3.5&multiNeighborhood=1462%2C1520%2C1461%2C1519"
+
+    #YAD2_URL= "https://www.yad2.co.il/realestate/rent?minPrice=5000&maxPrice=7500&minRooms=2&maxRooms=3.5&minSquaremeter=60&property=1%2C3%2C6%2C7%2C25%2C49%2C51%2C11%2C31%2C43%2C4&multiNeighborhood=1520%2C485%2C1461&zoom=13"
     #YAD2_URL = "https://www.yad2.co.il/realestate/rent?maxPrice=8000&minRooms=2&maxRooms=2.5&minFloor=0&maxFloor=3&property=1&balcony=1&multiNeighborhood=1520%2C1521%2C1461&zoom=13"
     
    
