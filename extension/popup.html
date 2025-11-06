@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Yad2 Monitor</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main>
+      <h1>Yad2 Monitor</h1>
+      <section id="detection" class="card">
+        <h2>Detected Search</h2>
+        <p id="detection-status">Checking current tab...</p>
+        <div id="detection-details" class="hidden">
+          <p><strong>URL:</strong> <span id="detected-url"></span></p>
+          <p><strong>Parameters:</strong></p>
+          <pre id="detected-params"></pre>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Register Monitoring</h2>
+        <form id="registration-form">
+          <label>
+            Email
+            <input type="email" name="email" placeholder="you@example.com" />
+          </label>
+          <label>
+            Display Name
+            <input type="text" name="displayName" placeholder="Optional" />
+          </label>
+          <label>
+            Telegram Username
+            <input type="text" name="telegramUsername" placeholder="username" />
+          </label>
+          <label>
+            Search Label
+            <input type="text" name="label" placeholder="Tel Aviv rentals" />
+          </label>
+          <label>
+            Check Interval (minutes)
+            <input type="number" name="intervalMinutes" min="5" max="180" step="5" placeholder="20" />
+          </label>
+          <button type="submit" id="register-btn">Start Monitoring</button>
+        </form>
+        <p id="form-message" class="message"></p>
+      </section>
+
+      <section id="result-card" class="card hidden">
+        <h2>Next Steps</h2>
+        <p id="result-message"></p>
+        <p>
+          <a id="telegram-link" href="#" target="_blank" rel="noopener noreferrer">Open Telegram chat</a>
+        </p>
+        <p class="hint">Click the link above and press <strong>Start</strong> in Telegram to confirm your subscription.</p>
+      </section>
+    </main>
+    <script src="popup.js"></script>
+  </body>
+</html>

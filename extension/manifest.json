@@ -1,0 +1,26 @@
+{
+  "manifest_version": 3,
+  "name": "Yad2 Monitor",
+  "description": "Detect Yad2 searches and register scraping preferences with the monitoring service.",
+  "version": "0.1.0",
+  "permissions": ["storage", "tabs"],
+  "host_permissions": [
+    "https://www.yad2.co.il/*",
+    "http://localhost:8000/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "Yad2 Monitor",
+    "default_popup": "popup.html"
+  },
+  "options_page": "options.html",
+  "content_scripts": [
+    {
+      "matches": ["https://www.yad2.co.il/realestate/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
