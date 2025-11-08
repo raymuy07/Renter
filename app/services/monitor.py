@@ -7,6 +7,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ..config import get_settings
@@ -117,8 +118,26 @@ class MonitorWorker(threading.Thread):
                     price_drop_notified=False,
                     last_notification_type="new",
                     last_notified_at=datetime.utcnow() if user.telegram_chat_id else None,
+                    first_seen_at=datetime.utcnow(),
+                    last_seen_at=datetime.utcnow(),
                 )
-                session.add(model)
+                try:
+                    session.add(model)
+                    session.flush()  # Flush immediately to catch constraint violations
+                except IntegrityError:
+                    # Listing already exists (race condition or previous failed transaction)
+                    logger.warning("Listing %s already exists for user %s, treating as existing", listing_id, user.id)
+                    session.rollback()
+                    # Re-fetch the existing listing and update it
+                    existing = session.execute(
+                        select(Listing).where(Listing.user_id == user.id, Listing.listing_id == listing_id)
+                    ).scalar_one_or_none()
+                    if existing:
+                        existing.last_seen_at = datetime.utcnow()
+                        existing.raw_payload = listing_copy
+                    # Remove from updates since it's not actually new
+                    if updates and updates[-1] == listing_copy:
+                        updates.pop()
             else:
                 existing.last_seen_at = datetime.utcnow()
                 existing.raw_payload = listing_copy

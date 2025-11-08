@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 import threading
 import time
@@ -14,6 +15,9 @@ from ..models import User
 
 
 logger = logging.getLogger(__name__)
+
+# Thread-local storage for event loops
+_thread_local = threading.local()
 
 
 def escape_markdown(text: str) -> str:
@@ -36,17 +40,31 @@ class TelegramService:
         self.update_offset: Optional[int] = None
         self._initialized = False
 
+    def _get_event_loop(self):
+        """Get or create a persistent event loop for the current thread."""
+        # Check if this thread has a loop
+        if not hasattr(_thread_local, 'loop') or _thread_local.loop is None or _thread_local.loop.is_closed():
+            # Create a new event loop for this thread
+            _thread_local.loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(_thread_local.loop)
+        return _thread_local.loop
+
+    def _run_async(self, coro):
+        """Run async coroutine safely in current thread."""
+        loop = self._get_event_loop()
+        return loop.run_until_complete(coro)
+
     def initialize(self) -> None:
         if self._initialized:
             return
 
         try:
-            info = self.bot.get_me()
+            info = self._run_async(self.bot.get_me())
             self.bot_username = info.username or self.bot_username
             if self.bot_username is None:
                 raise RuntimeError("Telegram bot username not available. Set TELEGRAM_BOT_USERNAME in env.")
 
-            updates = self.bot.get_updates(timeout=1)
+            updates = self._run_async(self.bot.get_updates(timeout=1))
             if updates:
                 self.update_offset = updates[-1].update_id + 1
             else:
@@ -66,23 +84,27 @@ class TelegramService:
 
     def send_message(self, chat_id: str | int, text: str) -> None:
         try:
-            self.bot.send_message(
-                chat_id=chat_id,
-                text=text,
-                parse_mode="MarkdownV2",
-                disable_web_page_preview=True,
-                read_timeout=30,
-                write_timeout=30,
-                connect_timeout=30,
-                pool_timeout=30,
+            self._run_async(
+                self.bot.send_message(
+                    chat_id=chat_id,
+                    text=text,
+                    parse_mode="MarkdownV2",
+                    disable_web_page_preview=True,
+                    read_timeout=30,
+                    write_timeout=30,
+                    connect_timeout=30,
+                    pool_timeout=30,
+                )
             )
         except TelegramError as exc:
             logger.warning("Markdown send failed, retry without formatting: %s", exc)
             try:
-                self.bot.send_message(
-                    chat_id=chat_id,
-                    text=text.replace("\\", ""),
-                    disable_web_page_preview=True,
+                self._run_async(
+                    self.bot.send_message(
+                        chat_id=chat_id,
+                        text=text.replace("\\", ""),
+                        disable_web_page_preview=True,
+                    )
                 )
             except TelegramError as final_exc:
                 logger.error("Failed to send Telegram message: %s", final_exc)
@@ -95,7 +117,7 @@ class TelegramService:
     def poll_for_updates(self) -> None:
         self.initialize()
         try:
-            updates: list[Update] = self.bot.get_updates(offset=self.update_offset, timeout=10)
+            updates: list[Update] = self._run_async(self.bot.get_updates(offset=self.update_offset, timeout=10))
         except TelegramError as exc:
             logger.error("Error polling Telegram updates: %s", exc)
             time.sleep(5)

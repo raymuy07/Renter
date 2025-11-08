@@ -32,6 +32,12 @@ dev = [
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
+[tool.setuptools]
+packages = ["app"]
+
+[tool.setuptools.package-data]
+"*" = ["*.json", "*.txt"]
+
 [tool.ruff]
 line-length = 88
 target-version = "py310"

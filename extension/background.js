@@ -1,4 +1,4 @@
-const DEFAULT_API_BASE = "http://localhost:8000/api/v1";
+const DEFAULT_API_BASE = "http://localhost:8000/api";
 
 let currentDetection = null;
 
