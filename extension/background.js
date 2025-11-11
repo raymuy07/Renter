@@ -38,6 +38,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return false;
   }
 
+  if (message.type === "AUTHENTICATE") {
+    handleAuthentication(message.payload)
+      .then((result) => sendResponse({ ok: true, ...result }))
+      .catch((error) => sendResponse({ ok: false, error: error.message }));
+    return true; // keep channel open for async response
+  }
+
   if (message.type === "REGISTER_USER") {
     handleRegistration(message.payload)
       .then((result) => sendResponse({ ok: true, data: result }))
@@ -60,6 +67,30 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   return false;
 });
 
+async function handleAuthentication(authData) {
+  const apiBaseUrl = await getApiBaseUrl();
+  const payload = {
+    username: authData.username,
+    password: authData.password,
+  };
+
+  const response = await fetch(`${apiBaseUrl}/auth`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    const errorMessage = data?.detail || data?.message || "Authentication failed";
+    throw new Error(errorMessage);
+  }
+
+  return data;
+}
+
 async function handleRegistration(formData) {
   if (!currentDetection) {
     throw new Error("No Yad2 search detected yet.");
@@ -67,13 +98,10 @@ async function handleRegistration(formData) {
 
   const apiBaseUrl = await getApiBaseUrl();
   const payload = {
-    email: formData.email || null,
-    display_name: formData.displayName || null,
-    telegram_username: formData.telegramUsername || null,
+    username: formData.username,
     label: formData.label || null,
     search_url: currentDetection.url,
     query_params: currentDetection.params,
-    check_interval_minutes: formData.intervalMinutes ? Number(formData.intervalMinutes) : null,
   };
 
   const response = await fetch(`${apiBaseUrl}/users/register`, {
@@ -103,9 +131,7 @@ async function storeRegistration(result, payload) {
         userId: result.user_id,
         preferenceId: result.preference_id,
         telegramLink: result.telegram_deep_link,
-        email: payload.email,
-        displayName: payload.display_name,
-        telegramUsername: payload.telegram_username,
+        username: payload.username,
         registeredAt: new Date().toISOString(),
       };
 

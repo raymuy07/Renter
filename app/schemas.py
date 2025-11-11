@@ -4,14 +4,16 @@ from typing import Any, Dict, List, Optional
 from pydantic import AnyHttpUrl, BaseModel, Field
 
 
+class AuthRequest(BaseModel):
+    username: str = Field(max_length=255)
+    password: str
+
+
 class RegisterUserRequest(BaseModel):
-    email: Optional[str] = Field(default=None, max_length=320)
-    display_name: Optional[str] = Field(default=None, max_length=255)
-    telegram_username: Optional[str] = Field(default=None, max_length=255)
+    username: str = Field(max_length=255)
     label: Optional[str] = Field(default=None, max_length=255)
     search_url: AnyHttpUrl
     query_params: Dict[str, Any] = Field(default_factory=dict)
-    check_interval_minutes: Optional[int] = Field(default=None, ge=5, le=180)
 
 
 class RegisterUserResponse(BaseModel):

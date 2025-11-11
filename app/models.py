@@ -16,9 +16,7 @@ class User(Base):
     __tablename__ = "users"
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True, default=generate_uuid)
-    email: Mapped[Optional[str]] = mapped_column(String(320), unique=True, nullable=True)
-    display_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    telegram_username: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    username: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
     telegram_chat_id: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
     telegram_start_token: Mapped[str] = mapped_column(String(128), unique=True, default=lambda: secrets.token_urlsafe(12))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

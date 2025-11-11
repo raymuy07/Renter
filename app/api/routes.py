@@ -9,7 +9,7 @@ from sqlalchemy import func, select
 from ..config import get_settings
 from ..db import session_scope
 from ..models import Listing, SearchPreference, User
-from ..schemas import RegisterUserRequest, RegisterUserResponse, UserStatusResponse
+from ..schemas import AuthRequest, RegisterUserRequest, RegisterUserResponse, UserStatusResponse
 from ..services.monitor import MonitorManager
 from ..services.telegram import TelegramService, escape_markdown
 
@@ -17,6 +17,15 @@ from ..services.telegram import TelegramService, escape_markdown
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+@router.post("/auth")
+def authenticate(payload: AuthRequest) -> dict[str, bool]:
+    """Authenticate user with username and password."""
+    settings = get_settings()
+    if payload.username == settings.auth_username and payload.password == settings.auth_password:
+        return {"authenticated": True}
+    return {"authenticated": False}
 
 
 def _get_services(request: Request) -> tuple[TelegramService, MonitorManager]:
@@ -33,22 +42,11 @@ def register_user(payload: RegisterUserRequest, request: Request) -> RegisterUse
     telegram_service, monitor_manager = _get_services(request)
 
     with session_scope() as session:
-        user = None
-        if payload.email:
-            user = session.execute(select(User).where(User.email == payload.email)).scalar_one_or_none()
+        user = session.execute(select(User).where(User.username == payload.username)).scalar_one_or_none()
 
         if user is None:
-            user = User(
-                email=payload.email,
-                display_name=payload.display_name,
-                telegram_username=payload.telegram_username,
-            )
+            user = User(username=payload.username)
             session.add(user)
-        else:
-            if payload.display_name:
-                user.display_name = payload.display_name
-            if payload.telegram_username:
-                user.telegram_username = payload.telegram_username
 
         session.flush()
 
@@ -60,26 +58,16 @@ def register_user(payload: RegisterUserRequest, request: Request) -> RegisterUse
         ).scalar_one_or_none()
 
         if preference is None:
-            check_interval = payload.check_interval_minutes
-            if check_interval is None:
-                if user.preferences:
-                    check_interval = user.preferences[0].check_interval_minutes
-                else:
-                    check_interval = get_settings().default_check_interval_minutes
-
             preference = SearchPreference(
                 user_id=user.id,
                 label=payload.label,
                 source_url=str(payload.search_url),
                 query_params=dict(payload.query_params),
-                check_interval_minutes=check_interval,
+                check_interval_minutes=get_settings().default_check_interval_minutes,
             )
-
             session.add(preference)
         else:
             preference.query_params = dict(payload.query_params)
-            if payload.check_interval_minutes:
-                preference.check_interval_minutes = payload.check_interval_minutes
             if payload.label:
                 preference.label = payload.label
             preference.active = True

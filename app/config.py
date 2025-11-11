@@ -1,7 +1,7 @@
 from functools import lru_cache
 from pathlib import Path
 from typing import Optional
-
+import os
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -27,6 +27,10 @@ class Settings(BaseSettings):
 
     # Yad2
     yad2_base_domain: str = "www.yad2.co.il"
+
+    # Authentication
+    auth_username: str = os.getenv("AUTH_USERNAME")
+    auth_password: str = os.getenv("AUTH_PASSWORD")
 
     def sqlite_db_path(self) -> Path:
         """Return absolute path to SQLite database file."""

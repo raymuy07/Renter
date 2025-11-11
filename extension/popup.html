@@ -20,29 +20,29 @@
       </section>
 
       <section class="card">
+        <h2>Authentication</h2>
+        <form id="auth-form">
+          <label>
+            Username
+            <input type="text" name="username" id="auth-username" placeholder="Enter username" required />
+          </label>
+          <label>
+            Password
+            <input type="password" name="password" id="auth-password" placeholder="Enter password" required />
+          </label>
+          <button type="submit" id="auth-btn">Authenticate</button>
+        </form>
+        <p id="auth-message" class="message"></p>
+      </section>
+
+      <section class="card" id="registration-section" style="display: none;">
         <h2>Register Monitoring</h2>
         <form id="registration-form">
-          <label>
-            Email
-            <input type="email" name="email" placeholder="you@example.com" />
-          </label>
-          <label>
-            Display Name
-            <input type="text" name="displayName" placeholder="Optional" />
-          </label>
-          <label>
-            Telegram Username
-            <input type="text" name="telegramUsername" placeholder="username" />
-          </label>
           <label>
             Search Label
             <input type="text" name="label" placeholder="Tel Aviv rentals" />
           </label>
-          <label>
-            Check Interval (minutes)
-            <input type="number" name="intervalMinutes" min="5" max="180" step="5" placeholder="20" />
-          </label>
-          <button type="submit" id="register-btn">Start Monitoring</button>
+          <button type="submit" id="register-btn" disabled>Start Monitoring</button>
         </form>
         <p id="form-message" class="message"></p>
       </section>
