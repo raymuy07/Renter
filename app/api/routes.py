@@ -101,7 +101,18 @@ def register_user(payload: RegisterUserRequest, request: Request) -> RegisterUse
         message="Registration completed. Use the Telegram link to subscribe.",
     )
 
+@router.get("/debug/auth")
+def debug_auth():
+    """Debug endpoint to check auth credentials."""
+    settings = get_settings()
+    return {
+        "auth_username": settings.auth_username,
+        "auth_password": "***" if settings.auth_password else None,
+        "has_username": bool(settings.auth_username),
+        "has_password": bool(settings.auth_password),
+    }
 
+    
 @router.get("/users/{user_id}/status", response_model=UserStatusResponse)
 def get_user_status(user_id: str) -> UserStatusResponse:
     with session_scope() as session:

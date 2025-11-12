@@ -29,9 +29,9 @@ class Settings(BaseSettings):
     yad2_base_domain: str = "www.yad2.co.il"
 
     # Authentication
-    auth_username: str = os.getenv("AUTH_USERNAME")
-    auth_password: str = os.getenv("AUTH_PASSWORD")
-
+    auth_username: str 
+    auth_password: str 
+    
     def sqlite_db_path(self) -> Path:
         """Return absolute path to SQLite database file."""
 
