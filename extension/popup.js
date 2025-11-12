@@ -118,10 +118,17 @@ function showResult(data) {
   const resultCard = document.getElementById("result-card");
   const resultMessage = document.getElementById("result-message");
   const telegramLink = document.getElementById("telegram-link");
+  const qrCodeImg = document.getElementById("telegram-qr-code");
 
   resultCard.classList.remove("hidden");
-  resultMessage.textContent = "Click the link below to finish the Telegram subscription.";
+  resultMessage.textContent = data.message || "Registration completed!";
   telegramLink.href = data.telegram_deep_link;
+  
+  // Display QR code if available
+  if (data.telegram_qr_code) {
+    qrCodeImg.src = data.telegram_qr_code;
+    qrCodeImg.style.display = "block";
+  }
 }
 
 document.addEventListener("DOMContentLoaded", async () => {

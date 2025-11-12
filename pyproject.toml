@@ -16,6 +16,7 @@ dependencies = [
     "beautifulsoup4>=4.12.2",
     "cloudscraper>=1.2.71",
     "alembic>=1.16.1",
+    "qrcode[pil]>=7.4.2",
 ]
 
 [project.optional-dependencies]

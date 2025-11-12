@@ -1,17 +1,20 @@
 from __future__ import annotations
 
 import asyncio
+import base64
+import io
 import logging
 import threading
 import time
 from typing import Iterable, Optional
 
+import qrcode
 from telegram import Bot, Update
 from telegram.error import TelegramError
 
 from ..config import get_settings
 from ..db import session_scope
-from ..models import User
+from ..models import SearchPreference, User
 
 
 logger = logging.getLogger(__name__)
@@ -39,6 +42,7 @@ class TelegramService:
         self.bot_username: Optional[str] = self.settings.telegram_bot_username
         self.update_offset: Optional[int] = None
         self._initialized = False
+        self.on_user_registered = None  # Callback for when user completes registration
 
     def _get_event_loop(self):
         """Get or create a persistent event loop for the current thread."""
@@ -81,6 +85,27 @@ class TelegramService:
         if not self.bot_username:
             raise RuntimeError("Telegram bot username missing")
         return f"https://t.me/{self.bot_username}?start={user.telegram_start_token}"
+    
+    def generate_qr_code(self, deep_link: str) -> str:
+        """Generate QR code for deep link and return as base64 encoded PNG."""
+        qr = qrcode.QRCode(
+            version=1,
+            error_correction=qrcode.constants.ERROR_CORRECT_L,
+            box_size=10,
+            border=4,
+        )
+        qr.add_data(deep_link)
+        qr.make(fit=True)
+        
+        img = qr.make_image(fill_color="black", back_color="white")
+        
+        # Convert to base64
+        buffer = io.BytesIO()
+        img.save(buffer, format='PNG')
+        buffer.seek(0)
+        img_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
+        
+        return f"data:image/png;base64,{img_base64}"
 
     def send_message(self, chat_id: str | int, text: str) -> None:
         try:
@@ -145,6 +170,7 @@ class TelegramService:
                 continue
 
             chat_id = str(message.chat.id)
+            user_id = None
             with session_scope() as session:
                 user = session.query(User).filter(User.telegram_start_token == token).one_or_none()
                 if not user:
@@ -153,19 +179,26 @@ class TelegramService:
 
                 user.telegram_chat_id = chat_id
                 session.add(user)
+                user_id = user.id
 
             try:
                 self.send_message(chat_id, "\u2705 Registered successfully. We'll notify you about new listings!")
             except TelegramError:
                 logger.exception("Failed to confirm Telegram registration for user %s", token)
+            
+            # Start monitoring for all active preferences for this user
+            if self.on_user_registered and user_id:
+                self.on_user_registered(user_id)
 
 
 class TelegramUpdatePoller(threading.Thread):
-    def __init__(self, service: TelegramService, interval_seconds: int = 5) -> None:
+    def __init__(self, service: TelegramService, interval_seconds: int = 5, on_user_registered=None) -> None:
         super().__init__(daemon=True)
         self.service = service
         self.interval_seconds = interval_seconds
         self._stop_event = threading.Event()
+        # Set the callback on the service
+        self.service.on_user_registered = on_user_registered
 
     def run(self) -> None:
         logger.info("Starting Telegram update poller")

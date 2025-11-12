@@ -20,6 +20,7 @@ class RegisterUserResponse(BaseModel):
     user_id: str
     preference_id: str
     telegram_deep_link: Optional[str]
+    telegram_qr_code: Optional[str] = None  # Base64 encoded PNG image
     message: str
 
 

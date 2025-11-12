@@ -40,6 +40,13 @@ class MonitorWorker(threading.Thread):
         while not self.stop_event.is_set():
             sleep_seconds = self.settings.min_check_interval_seconds
 
+            # # Check quiet hours BEFORE scraping
+            # if self.settings.is_quiet_hours():
+            #     logger.debug("Quiet hours active. Skipping scraping for preference %s", self.preference_id)
+            #     # Sleep for a shorter time during quiet hours to check when they end
+            #     self.stop_event.wait(1500)  # Check every 5 minutes
+            #     continue
+
             with session_scope() as session:
                 preference = session.get(SearchPreference, self.preference_id)
                 if not preference or not preference.active:

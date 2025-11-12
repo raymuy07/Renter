@@ -23,8 +23,12 @@ router = APIRouter()
 def authenticate(payload: AuthRequest) -> dict[str, bool]:
     """Authenticate user with username and password."""
     settings = get_settings()
-    if payload.username == settings.auth_username and payload.password == settings.auth_password:
-        return {"authenticated": True}
+    valid_credentials = settings.get_valid_credentials()
+    
+    for cred in valid_credentials:
+        if payload.username == cred["username"] and payload.password == cred["password"]:
+            return {"authenticated": True}
+    
     return {"authenticated": False}
 
 
@@ -75,15 +79,16 @@ def register_user(payload: RegisterUserRequest, request: Request) -> RegisterUse
         session.flush()
 
         deep_link = telegram_service.generate_deep_link(user)
+        qr_code = telegram_service.generate_qr_code(deep_link)
         preference_id = preference.id
         user_id = user.id
         chat_id = user.telegram_chat_id
         label = preference.label or "Yad2 search"
         source_url = preference.source_url
 
-    monitor_manager.start_monitor(preference_id)
-
+    # Only start monitoring if user has already connected their Telegram
     if chat_id:
+        monitor_manager.start_monitor(preference_id)
         try:
             message = (
                 "\ud83d\udd0d Monitoring updated for *{label}*\n"
@@ -94,22 +99,28 @@ def register_user(payload: RegisterUserRequest, request: Request) -> RegisterUse
         except Exception:  # noqa: BLE001
             logger.exception("Failed to send registration confirmation to Telegram chat %s", chat_id)
 
+    if chat_id:
+        response_message = "Search preference updated. Monitoring is active."
+    else:
+        response_message = "Registration completed. Scan the QR code or click the Telegram link to activate monitoring."
+    
     return RegisterUserResponse(
         user_id=user_id,
         preference_id=preference_id,
         telegram_deep_link=deep_link,
-        message="Registration completed. Use the Telegram link to subscribe.",
+        telegram_qr_code=qr_code,
+        message=response_message,
     )
 
 @router.get("/debug/auth")
 def debug_auth():
     """Debug endpoint to check auth credentials."""
     settings = get_settings()
+    credentials = settings.get_valid_credentials()
     return {
-        "auth_username": settings.auth_username,
-        "auth_password": "***" if settings.auth_password else None,
-        "has_username": bool(settings.auth_username),
-        "has_password": bool(settings.auth_password),
+        "credentials_count": len(credentials),
+        "usernames": [cred["username"] for cred in credentials],
+        "has_credentials": len(credentials) > 0,
     }
 
     
