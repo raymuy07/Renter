@@ -5,13 +5,9 @@ import json
 import hashlib
 from datetime import datetime
 import logging
-from typing import Set, Dict, List
+from typing import Any, Dict, List
 import os
-from telegram import Bot
-from telegram.error import TelegramError
-import schedule
 import random
-from urllib.parse import urljoin, urlparse
 import cloudscraper
 
 
@@ -294,6 +290,11 @@ class StealthYad2Monitor:
 
         return normalized
 
+    def compute_price_hash(self, normalized_price: str) -> str:
+        if not normalized_price:
+            return ""
+        return hashlib.md5(normalized_price.encode()).hexdigest()
+
     def check_for_updates(self) -> List[Dict]:
         """Check for new listings and price drops."""
         html = self.fetch_page()
@@ -315,7 +316,7 @@ class StealthYad2Monitor:
                 # Store with normalized price for future comparisons
                 stored_listing = listing.copy()
                 stored_listing['normalized_price'] = self.normalize_price_for_comparison(listing['price'])
-                stored_listing['price_hash'] = hashlib.md5(stored_listing['normalized_price'].encode()).hexdigest()
+                stored_listing['price_hash'] = self.compute_price_hash(stored_listing['normalized_price'])
                 stored_listing['price_drop_notified'] = False
                 self.known_listings[listing_id] = stored_listing
 
@@ -335,7 +336,7 @@ class StealthYad2Monitor:
                 previous_had_drop_indicator = known_listing.get('price_dropped', False)
 
                 # Track the actual price to detect real price drops
-                current_price_hash = hashlib.md5(current_normalized_price.encode()).hexdigest()
+                current_price_hash = self.compute_price_hash(current_normalized_price)
                 previous_price_hash = known_listing.get('price_hash', '')
 
                 if current_has_drop_indicator and not previous_had_drop_indicator and price_changed:

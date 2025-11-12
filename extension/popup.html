@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Yad2 Monitor</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main>
+      <h1>Yad2 Monitor</h1>
+      <section id="detection" class="card">
+        <h2>Detected Search</h2>
+        <p id="detection-status">Checking current tab...</p>
+        <div id="detection-details" class="hidden">
+          <p><strong>URL:</strong> <span id="detected-url"></span></p>
+          <p><strong>Parameters:</strong></p>
+          <pre id="detected-params"></pre>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Authentication</h2>
+        <form id="auth-form">
+          <label>
+            Username
+            <input type="text" name="username" id="auth-username" placeholder="Enter username" required />
+          </label>
+          <label>
+            Password
+            <input type="password" name="password" id="auth-password" placeholder="Enter password" required />
+          </label>
+          <button type="submit" id="auth-btn">Authenticate</button>
+        </form>
+        <p id="auth-message" class="message"></p>
+      </section>
+
+      <section class="card" id="registration-section" style="display: none;">
+        <h2>Register Monitoring</h2>
+        <form id="registration-form">
+          <label>
+            Search Label
+            <input type="text" name="label" placeholder="Tel Aviv rentals" />
+          </label>
+          <button type="submit" id="register-btn" disabled>Start Monitoring</button>
+        </form>
+        <p id="form-message" class="message"></p>
+      </section>
+
+      <section id="result-card" class="card hidden">
+        <h2>Next Steps</h2>
+        <p id="result-message"></p>
+        <div id="qr-code-container" style="text-align: center; margin: 20px 0;">
+          <img id="telegram-qr-code" src="" alt="Telegram QR Code" style="max-width: 250px; display: none;" />
+        </div>
+        <p>
+          <a id="telegram-link" href="#" target="_blank" rel="noopener noreferrer">Open Telegram chat</a>
+        </p>
+        <p class="hint">Scan the QR code with your phone, or click the link above and press <strong>Start</strong> in Telegram to activate monitoring.</p>
+      </section>
+    </main>
+    <script src="popup.js"></script>
+  </body>
+</html>

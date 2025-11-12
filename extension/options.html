@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Yad2 Monitor Options</title>
+    <link rel="stylesheet" href="styles.css" />
+    <style>
+      body {
+        width: auto;
+        max-width: 720px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Yad2 Monitor Settings</h1>
+      <section class="card">
+        <form id="settings-form">
+          <label>
+            API Base URL
+            <input type="text" name="apiBaseUrl" id="apiBaseUrl" placeholder="http://localhost:8000/api/v1" />
+          </label>
+          <button type="submit">Save</button>
+          <p id="save-message" class="message"></p>
+        </form>
+      </section>
+    </main>
+    <script src="options.js"></script>
+  </body>
+</html>
