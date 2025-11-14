@@ -43,6 +43,7 @@ class TelegramService:
         self.update_offset: Optional[int] = None
         self._initialized = False
         self.on_user_registered = None  # Callback for when user completes registration
+        self.monitor_manager = None  # Reference to MonitorManager for stopping monitors
 
     def _get_event_loop(self):
         """Get or create a persistent event loop for the current thread."""
@@ -158,37 +159,154 @@ class TelegramService:
                 continue
 
             text = message.text or ""
-            if not text.startswith("/start"):
-                continue
-
-            token = None
-            parts = text.split(maxsplit=1)
-            if len(parts) == 2:
-                token = parts[1].strip()
-
-            if not token:
-                continue
-
             chat_id = str(message.chat.id)
-            user_id = None
-            with session_scope() as session:
-                user = session.query(User).filter(User.telegram_start_token == token).one_or_none()
-                if not user:
-                    logger.warning("Received /start with unknown token: %s", token)
+            
+            # Handle /start command
+            if text.startswith("/start"):
+                token = None
+                parts = text.split(maxsplit=1)
+                if len(parts) == 2:
+                    token = parts[1].strip()
+
+                if not token:
                     continue
 
-                user.telegram_chat_id = chat_id
-                session.add(user)
-                user_id = user.id
+                user_id = None
+                with session_scope() as session:
+                    user = session.query(User).filter(User.telegram_start_token == token).one_or_none()
+                    if not user:
+                        logger.warning("Received /start with unknown token: %s", token)
+                        continue
 
-            try:
-                self.send_message(chat_id, "\u2705 Registered successfully. We'll notify you about new listings!")
-            except TelegramError:
-                logger.exception("Failed to confirm Telegram registration for user %s", token)
+                    user.telegram_chat_id = chat_id
+                    session.add(user)
+                    user_id = user.id
+
+                try:
+                    self.send_message(chat_id, "\u2705 Registered successfully\\! We'll notify you about new listings\\!")
+                except TelegramError:
+                    logger.exception("Failed to confirm Telegram registration for user %s", token)
+                
+                # Start monitoring for all active preferences for this user
+                if self.on_user_registered and user_id:
+                    self.on_user_registered(user_id)
+                continue
             
-            # Start monitoring for all active preferences for this user
-            if self.on_user_registered and user_id:
-                self.on_user_registered(user_id)
+            # Handle /delete command
+            if text.strip() == "/delete":
+                self._handle_delete_command(chat_id)
+                continue
+            
+            # Handle /list command
+            if text.strip() == "/list":
+                self._handle_list_command(chat_id)
+                continue
+    
+    def _handle_delete_command(self, chat_id: str) -> None:
+        """Handle /delete command to deactivate user's active search preferences."""
+        preference_ids_to_stop = []
+        with session_scope() as session:
+            user = session.query(User).filter(User.telegram_chat_id == chat_id).one_or_none()
+            if not user:
+                try:
+                    self.send_message(chat_id, "\u274c You are not registered\\. Please register first\\.")
+                except TelegramError:
+                    logger.exception("Failed to send error message to chat %s", chat_id)
+                return
+            
+            # Find all active preferences
+            active_prefs = session.query(SearchPreference).filter(
+                SearchPreference.user_id == user.id,
+                SearchPreference.active.is_(True)
+            ).all()
+            
+            if not active_prefs:
+                try:
+                    self.send_message(chat_id, "\U0001f937 You don't have any active searches to delete\\.")
+                except TelegramError:
+                    logger.exception("Failed to send message to chat %s", chat_id)
+                return
+            
+            # Deactivate all active preferences
+            deleted_labels = []
+            for pref in active_prefs:
+                pref.active = False
+                deleted_labels.append(pref.label or "Yad2 search")
+                preference_ids_to_stop.append(pref.id)
+            
+            session.commit()
+        
+        # Stop monitoring for deleted preferences
+        if self.monitor_manager:
+            for pref_id in preference_ids_to_stop:
+                try:
+                    self.monitor_manager.stop_monitor(pref_id)
+                    logger.info("Stopped monitoring for preference %s", pref_id)
+                except Exception:
+                    logger.exception("Failed to stop monitor for preference %s", pref_id)
+        
+        # Send confirmation message
+        try:
+            if len(deleted_labels) == 1:
+                message = f"\u2705 Deleted search: *{escape_markdown(deleted_labels[0])}*\\. You can now add a new search\\!"
+            else:
+                labels_list = "\\n".join([f"  \\- {escape_markdown(label)}" for label in deleted_labels])
+                message = f"\u2705 Deleted {len(deleted_labels)} searches:\\n{labels_list}\\nYou can now add a new search\\!"
+            self.send_message(chat_id, message)
+        except TelegramError:
+            logger.exception("Failed to send delete confirmation to chat %s", chat_id)
+    
+    def _handle_list_command(self, chat_id: str) -> None:
+        """Handle /list command to show user's active search preferences."""
+        with session_scope() as session:
+            user = session.query(User).filter(User.telegram_chat_id == chat_id).one_or_none()
+            if not user:
+                try:
+                    self.send_message(chat_id, "\u274c You are not registered\\. Please register first\\.")
+                except TelegramError:
+                    logger.exception("Failed to send error message to chat %s", chat_id)
+                return
+            
+            # Find all preferences (both active and inactive)
+            all_prefs = session.query(SearchPreference).filter(
+                SearchPreference.user_id == user.id
+            ).order_by(SearchPreference.created_at.desc()).all()
+            
+            if not all_prefs:
+                try:
+                    self.send_message(chat_id, "\U0001f50d You don't have any searches yet\\. Use the Chrome extension to add one\\!")
+                except TelegramError:
+                    logger.exception("Failed to send message to chat %s", chat_id)
+                return
+            
+            # Build message with active and inactive preferences
+            active_list = []
+            inactive_list = []
+            for pref in all_prefs:
+                label = escape_markdown(pref.label or "Untitled search")
+                if pref.active:
+                    active_list.append(f"  \u2705 {label}")
+                else:
+                    inactive_list.append(f"  \u274c {label}")
+            
+            message_parts = ["\U0001f4cb *Your searches:*\\n"]
+            
+            if active_list:
+                message_parts.append("\\n*Active:*")
+                message_parts.extend(active_list)
+            
+            if inactive_list:
+                message_parts.append("\\n*Inactive:*")
+                message_parts.extend(inactive_list)
+            
+            message_parts.append("\\nUse /delete to remove active searches\\.")
+            
+            message = "\\n".join(message_parts)
+            
+            try:
+                self.send_message(chat_id, message)
+            except TelegramError:
+                logger.exception("Failed to send list message to chat %s", chat_id)
 
 
 class TelegramUpdatePoller(threading.Thread):

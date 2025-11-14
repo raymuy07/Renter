@@ -39,6 +39,9 @@ def on_startup() -> None:
     telegram_service = TelegramService()
     monitor_manager = MonitorManager(telegram_service)
     
+    # Set monitor manager reference on telegram service for /delete command
+    telegram_service.monitor_manager = monitor_manager
+    
     # Callback to start monitoring when user completes Telegram registration
     def start_user_monitoring(user_id: str):
         with session_scope() as session:

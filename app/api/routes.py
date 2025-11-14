@@ -54,12 +54,31 @@ def register_user(payload: RegisterUserRequest, request: Request) -> RegisterUse
 
         session.flush()
 
+        # Check if user already has an active preference
+        existing_active = session.execute(
+            select(SearchPreference).where(
+                SearchPreference.user_id == user.id,
+                SearchPreference.active.is_(True),
+            )
+        ).scalar_one_or_none()
+
+        # Check if this exact preference exists
         preference = session.execute(
             select(SearchPreference).where(
                 SearchPreference.user_id == user.id,
                 SearchPreference.source_url == str(payload.search_url),
             )
         ).scalar_one_or_none()
+
+        # If user has an active preference and it's not the same one they're trying to register
+        if existing_active and (preference is None or preference.id != existing_active.id):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    f"You already have an active search: '{existing_active.label or 'Yad2 search'}'. "
+                    f"Please use the /delete command in Telegram to remove your current search before adding a new one."
+                )
+            )
 
         if preference is None:
             preference = SearchPreference(
@@ -71,6 +90,7 @@ def register_user(payload: RegisterUserRequest, request: Request) -> RegisterUse
             )
             session.add(preference)
         else:
+            # If it's the same preference, update it
             preference.query_params = dict(payload.query_params)
             if payload.label:
                 preference.label = payload.label
